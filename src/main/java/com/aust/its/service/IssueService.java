@@ -3,32 +3,34 @@ package com.aust.its.service;
 import com.aust.its.dto.*;
 import com.aust.its.dto.model.IssueDto;
 import com.aust.its.dto.model.UserDto;
-import com.aust.its.entity.Category;
-import com.aust.its.entity.Developer;
-import com.aust.its.entity.Issue;
-import com.aust.its.entity.User;
+import com.aust.its.entity.*;
 import com.aust.its.enums.IssueStatus;
 import com.aust.its.enums.Role;
 import com.aust.its.mapper.CategoryMapper;
 import com.aust.its.mapper.IssueMapper;
 import com.aust.its.mapper.UserMapper;
+import com.aust.its.repository.IssueFileRepository;
 import com.aust.its.repository.IssueRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.io.File;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class IssueService {
 
     private static final Logger logger = LoggerFactory.getLogger(IssueService.class);
+    private static final String FILE_SAVE_DIRECTORY = "D:/iums_images";
+    private final IssueFileRepository issueFileRepository;
 
     private final IssueRepository issueRepository;
     private final UserService userService;
@@ -266,5 +268,51 @@ public class IssueService {
         List<Issue> issues = issueRepository.findAll();
         long count = issues.stream().filter(i -> i.getStatus().equals(issueStatus)).count();
         return new IssueCountDto(issueStatus, count);
+    }
+
+
+    //code for the file
+    public Issue createIssueWithFiles(String title, String description, Long userId, String category, List<String> uploadedFilenames) {
+        // Get user
+        User user = userService.getById(userId);
+
+        // Create issue and save
+        Issue issue = new Issue();
+        issue.setTitle(title);
+        issue.setDescription(description);
+        issue.setUser(user);
+        issue.setStatus(IssueStatus.PENDING);
+
+
+        issue.setCreatedAt(LocalDateTime.now());
+
+        Issue savedIssue = issueRepository.save(issue); // Save to get issue ID
+
+        // Map each filename to an IssueFile entity
+        List<IssueFile> issueFiles = uploadedFilenames.stream()
+                .map(fileName -> IssueFile.builder()
+                        .fileName(fileName)
+                        .issue(savedIssue)
+                        .user(user)
+                        .build())
+                .collect(Collectors.toList());
+
+        // Save file metadata to DB
+        issueFileRepository.saveAll(issueFiles);
+
+        return savedIssue;
+    }
+
+    // Utility method (optional): Save actual file to D:/iums_images
+    public String saveFileToDisk(String userId, String originalFilename, byte[] fileBytes) throws Exception {
+        String dirPath = FILE_SAVE_DIRECTORY + "/" + userId;
+        File dir = new File(dirPath);
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+
+        File savedFile = new File(dir, originalFilename);
+        java.nio.file.Files.write(savedFile.toPath(), fileBytes);
+        return originalFilename; // Return saved file name
     }
 }
