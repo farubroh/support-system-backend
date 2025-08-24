@@ -35,11 +35,18 @@ public class AuthorizedUserAspect {
                 .map(h -> h.substring(7))
                 .orElse(null);
 
-        if (token != null) {
+        if (token == null) {
+            throw new RuntimeException("Missing Authorization token");
+        }
+
+        // Extract user info from JWT token
+        try {
             JwtUsrInfo jwtUsrInfo = authenticationService.extractJwtUserInfo(token);
             String adminUserId = jwtUsrInfo.adminUsrId();
-
             logger.info("AdminUsrId :: {}", adminUserId);
+        } catch (Exception e) {
+            // Token invalid or expired
+            throw new RuntimeException("Invalid or expired token");
         }
     }
 }

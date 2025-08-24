@@ -1,6 +1,6 @@
 package com.aust.its.dto;
 
 public record CategoryDto(
-    long categoryId,
-    String categoryName
+        long categoryId,
+        String categoryName
 ) { }

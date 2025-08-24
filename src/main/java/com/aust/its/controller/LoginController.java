@@ -10,7 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = "http://localhost:4200")
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
@@ -21,6 +21,7 @@ public class LoginController {
     private final UserRepository userRepository;
     private final AuthenticationService authenticationService;
 
+    // Login method for just returning user data (if needed for other purposes)
     @PostMapping("/login")
     public User login(@RequestBody LoginPayload loginPayload) {
 
@@ -33,8 +34,9 @@ public class LoginController {
         return user;
     }
 
+    // Authenticate method: Return both the user info and the JWT token
     @PostMapping("/authenticate")
-    public String authenticate(@RequestBody LoginPayload loginPayload) {
+    public AuthenticationResponse authenticate(@RequestBody LoginPayload loginPayload) {
 
         logger.info("login payload is : {}", loginPayload);
 
@@ -42,7 +44,7 @@ public class LoginController {
                 .orElseThrow(() -> new RuntimeException("Invalid credentials"));
 
         JwtUsrInfo jwtUsrInfo;
-        if(loginPayload.isAdmin()) {
+        if (loginPayload.isAdmin()) {
             jwtUsrInfo = JwtUsrInfo.withAdminUsrId(user.getUsername(), user.getId(), user.getRole(), "admin: ".concat(String.valueOf(user.getId())));
         } else {
             jwtUsrInfo = JwtUsrInfo.of(user.getUsername(), user.getId(), user.getRole());
@@ -51,6 +53,27 @@ public class LoginController {
         String jwt = authenticationService.generateToken(jwtUsrInfo);
         logger.info("Jwt Token is : {}", jwt);
 
-        return jwt;
+        // Return both user info and JWT token in the response
+        return new AuthenticationResponse(user, jwt);
+    }
+
+    // Response class to hold user info and JWT token
+    public static class AuthenticationResponse {
+        private User user;
+        private String token;
+
+        public AuthenticationResponse(User user, String token) {
+            this.user = user;
+            this.token = token;
+        }
+
+        // Getters
+        public User getUser() {
+            return user;
+        }
+
+        public String getToken() {
+            return token;
+        }
     }
 }

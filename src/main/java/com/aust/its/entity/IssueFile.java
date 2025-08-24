@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.Builder;
 
 @Builder
-
+@Entity
 
 public class IssueFile {
     @Id
