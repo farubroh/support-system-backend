@@ -52,11 +52,10 @@ public class IssueController {
     }
 
     @GetMapping("/user/{id}")
-    public List<Issue> getIssues(@PathVariable("id") Long userId,
-                                 @RequestParam IssueStatus status) {
-
+    public List<UserIssueResponse> getIssues(@PathVariable("id") Long userId,
+                                             @RequestParam IssueStatus status) {
         logger.info("finding issues of userId :: {} for status :: {}", userId, status);
-        return issueService.getIssuesByUserIdAndStatus(userId, status);
+        return issueService.getUserIssuesWithStatus(userId, status);
     }
 
     @GetMapping("/status/{status}")
@@ -78,7 +77,8 @@ public class IssueController {
         return issueService.rejectIssue(id, issueRejectPayload);
     }
 
-    @PutMapping("{id}/status")
+    // IMPORTANT: Angular calls POST here, not PUT
+    @PostMapping("{id}/status")
     public Issue updateStatus(@PathVariable Long id,
                               @RequestBody IssueStatusUpdatePayload issueStatusUpdatePayload) {
         return issueService.updateIssueByStatus(id, issueStatusUpdatePayload);
@@ -100,18 +100,13 @@ public class IssueController {
         return issueService.getIssueCountByStatus(issueStatus);
     }
 
-
-
-
-
-
-    //new controller for file:
+    // -------- Files ----------
     @PostMapping("/with-files")
     public ResponseEntity<?> createIssueWithFiles(
             @RequestParam("title") String title,
             @RequestParam("description") String description,
             @RequestParam("userId") Long userId,
-            @RequestParam("category") String category,
+            @RequestParam("categoryIds") List<Long> categoryIds,
             @RequestParam(value = "files", required = false) List<MultipartFile> files
     ) {
         try {
@@ -122,31 +117,29 @@ public class IssueController {
                     String originalFilename = file.getOriginalFilename();
                     if (originalFilename == null || originalFilename.isBlank()) continue;
 
-                    // ✅ Fixed File Save Location
                     String uploadDir = "D:/iums_images/" + userId;
                     File dir = new File(uploadDir);
                     if (!dir.exists()) dir.mkdirs();
 
-                    File dest = new File(uploadDir + "/" + originalFilename);
+                    File dest = new File(uploadDir, originalFilename);
                     file.transferTo(dest);
 
-                    savedFileNames.add(originalFilename); // ✅ Save only filename
+                    savedFileNames.add(originalFilename);
                 }
             }
 
-            Issue newIssue = issueService.createIssueWithFiles(
-                    title, description, userId, category, savedFileNames
+            IssueDto dto = issueService.createIssueWithFiles(
+                    title, description, userId, categoryIds, savedFileNames
             );
 
-            return ResponseEntity.ok(newIssue);
+            return ResponseEntity.ok(dto);
 
         } catch (Exception e) {
-            e.printStackTrace(); // helpful for debugging
+            logger.error("Error saving issue with files", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error saving issue: " + e.getMessage());
         }
     }
-
 
     @GetMapping("/files/{userId}/{filename:.+}")
     public ResponseEntity<Resource> getFile(@PathVariable String userId, @PathVariable String filename) {
@@ -158,10 +151,9 @@ public class IssueController {
                 return ResponseEntity.notFound().build();
             }
 
-            // 🔍 Detect the MIME type
             String mimeType = Files.probeContentType(path);
             if (mimeType == null) {
-                mimeType = "application/octet-stream"; // Fallback
+                mimeType = "application/octet-stream";
             }
 
             return ResponseEntity.ok()

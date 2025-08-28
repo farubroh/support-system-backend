@@ -34,6 +34,7 @@ public class AuthorizedUserAspect {
                 .filter(h -> h.startsWith("Bearer "))
                 .map(h -> h.substring(7))
                 .orElse(null);
+        System.out.println("my token is:"+token);
 
         if (token == null) {
             throw new RuntimeException("Missing Authorization token");

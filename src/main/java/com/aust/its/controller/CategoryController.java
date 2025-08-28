@@ -19,7 +19,11 @@ public class CategoryController {
 
     @GetMapping
     public List<CategoryDto> getAllCategories() {
-        return categoryService.getAll();
+
+        List<CategoryDto> categories = categoryService.getAll();
+        // Log the categories to check if they're being fetched correctly
+        categories.forEach(category -> log.info("Category: " + category));
+        return categories;
     }
 
     @GetMapping("/{id}")

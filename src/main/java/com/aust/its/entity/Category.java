@@ -1,5 +1,6 @@
 package com.aust.its.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -19,5 +20,6 @@ public class Category {
     public String categoryName;
 
     @ManyToMany(mappedBy = "categories")
+    @JsonIgnore // ⬅️ prevents Issue -> Category -> Issue infinite loop
     private List<Issue> issues;
 }

@@ -1,14 +1,19 @@
 package com.aust.its.entity;
 
 import jakarta.persistence.*;
-import lombok.Builder;
+import lombok.*;
 
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Builder
 @Entity
-
+@Table(name = "issue_files")
 public class IssueFile {
+
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY) // ✅ Required
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(name = "file_name", nullable = false)
@@ -21,5 +26,4 @@ public class IssueFile {
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;
-
 }

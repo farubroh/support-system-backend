@@ -11,6 +11,7 @@ import com.aust.its.mapper.IssueMapper;
 import com.aust.its.mapper.UserMapper;
 import com.aust.its.repository.IssueFileRepository;
 import com.aust.its.repository.IssueRepository;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,10 +19,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,11 +28,12 @@ public class IssueService {
 
     private static final Logger logger = LoggerFactory.getLogger(IssueService.class);
     private static final String FILE_SAVE_DIRECTORY = "D:/iums_images";
-    private final IssueFileRepository issueFileRepository;
 
+    private final IssueFileRepository issueFileRepository;
     private final IssueRepository issueRepository;
     private final UserService userService;
     private final DeveloperService developerService;
+    private final CategoryService categoryService;
 
     public List<Issue> getIssuesByUserIdAndStatus(Long userId, IssueStatus status) {
         List<Issue> issues = issueRepository.findByUserIdAndStatus(userId, status);
@@ -42,55 +41,93 @@ public class IssueService {
         return issues;
     }
 
+    /** ADMIN list by status (now also returns attachments). */
     public List<IssueByStatusResponse> getIssuesByStatus(IssueStatus status) {
         List<Issue> issues = issueRepository.findByStatus(status);
-
         List<IssueByStatusResponse> responses = new ArrayList<>();
 
         for (Issue issue : issues) {
-            IssueByStatusResponse response =
-                    IssueByStatusResponse
-                            .builder()
-                            .id(issue.getId())
-                            .title(issue.getTitle())
-                            .description(issue.getDescription())
-                            .user(issue.getUser())
-                            .status(issue.getStatus())
-                            .createdAt(issue.getCreatedAt())
-                            .completedAt(issue.getCompletedAt())
-                            .serialId(issue.getSerialId())
-                            .build();
+            var categoryDtos = (issue.getCategories() == null)
+                    ? List.<CategoryDto>of()
+                    : issue.getCategories().stream().map(CategoryMapper::entityToDto).toList();
+            String primaryCategory = categoryDtos.isEmpty() ? null : categoryDtos.get(0).categoryName();
 
-            if(IssueStatus.PENDING.equals(issue.getStatus()) || IssueStatus.INPROGRESS.equals(issue.getStatus())) {
-                if(issue.getAssignedTo() != null) {
+            // 🔗 collect filenames for this issue
+            var files = issueFileRepository.findByIssueId(issue.getId())
+                    .stream()
+                    .map(IssueFile::getFileName)
+                    .toList();
+
+            IssueByStatusResponse response = IssueByStatusResponse.builder()
+                    .id(issue.getId())
+                    .title(issue.getTitle())
+                    .description(issue.getDescription())
+                    .user(issue.getUser())
+                    .status(issue.getStatus())
+                    .createdAt(issue.getCreatedAt())
+                    .completedAt(issue.getCompletedAt())
+                    .rejectedAt(issue.getRejectedAt())
+                    .serialId(issue.getSerialId())
+                    .completedReason(issue.getCompletedReason())
+                    .rejectedReason(issue.getRejectionReason())
+                    .category(primaryCategory)
+                    .categories(categoryDtos)
+                    .files(files)
+                    .build();
+
+            if (IssueStatus.PENDING.equals(issue.getStatus()) || IssueStatus.INPROGRESS.equals(issue.getStatus())) {
+                if (issue.getAssignedTo() != null && issue.getAssignedTo().getUser() != null) {
                     response.setDeveloperName(issue.getAssignedTo().getUser().getUsername());
                 }
             }
-            if(IssueStatus.COMPLETED.equals(issue.getStatus())) {
-                if(issue.getResolvedBy() != null) {
+            if (IssueStatus.COMPLETED.equals(issue.getStatus())) {
+                if (issue.getResolvedBy() != null && issue.getResolvedBy().getUser() != null) {
                     response.setDeveloperName(issue.getResolvedBy().getUser().getUsername());
-                    response.setCompletedReason(issue.getCompletedReason());
-                    response.setCompletedAt(issue.getCompletedAt());
                 }
             }
-            if(IssueStatus.REJECTED.equals(issue.getStatus())) {
-                if(issue.getRejectedBy() != null) {
+            if (IssueStatus.REJECTED.equals(issue.getStatus())) {
+                if (issue.getRejectedBy() != null && issue.getRejectedBy().getUser() != null) {
                     response.setDeveloperName(issue.getRejectedBy().getUser().getUsername());
-                    response.setRejectedReason(issue.getRejectionReason());
-                    response.setRejectedAt(issue.getRejectedAt());
-                }
-                else {
+                } else {
                     response.setDeveloperName(issue.getRejectedByAdmin());
-                    response.setRejectedReason(issue.getRejectionReason());
-                    response.setRejectedAt(issue.getRejectedAt());
                 }
             }
 
             responses.add(response);
         }
-
-        logger.info("issues by status : {}", issues);
         return responses;
+    }
+
+    /** USER list by (user,status) (now also returns attachments). */
+    @Transactional(readOnly = true)
+    public List<UserIssueResponse> getUserIssuesWithStatus(Long userId, IssueStatus status) {
+        List<Issue> issues = issueRepository.findByUserIdAndStatus(userId, status);
+
+        return issues.stream().map(issue -> {
+            var categoryDtos = (issue.getCategories() == null)
+                    ? List.<CategoryDto>of()
+                    : issue.getCategories().stream().map(CategoryMapper::entityToDto).toList();
+            String primaryCategory = categoryDtos.isEmpty() ? null : categoryDtos.get(0).categoryName();
+
+            var files = issueFileRepository.findByIssueId(issue.getId())
+                    .stream()
+                    .map(IssueFile::getFileName)
+                    .collect(Collectors.toList());
+
+            UserDto userDto = UserMapper.entityToDto(issue.getUser());
+
+            return UserIssueResponse.builder()
+                    .id(issue.getId())
+                    .title(issue.getTitle())
+                    .description(issue.getDescription())
+                    .status(issue.getStatus())
+                    .createdAt(issue.getCreatedAt())
+                    .category(primaryCategory)
+                    .categories(categoryDtos)
+                    .user(userDto)
+                    .files(files)
+                    .build();
+        }).toList();
     }
 
     public DeveloperAssignedResponse assignIssue(Long issueId, final IssueAssignPayload issueAssignPayload) {
@@ -102,7 +139,6 @@ public class IssueService {
 
         List<Issue> assignedIssues = developer.getAssignedIssues();
         assignedIssues.add(issue);
-
         developer.setAssignedIssues(assignedIssues);
 
         issueRepository.save(issue);
@@ -125,11 +161,10 @@ public class IssueService {
         issue.setRejectedAt(LocalDateTime.now());
         issue.setRejectionReason(issueRejectPayload.rejectionReason());
 
-        if(Role.ADMIN.getName().equalsIgnoreCase(issueRejectPayload.rejectedByRole())) {
+        if (Role.ADMIN.getName().equalsIgnoreCase(issueRejectPayload.rejectedByRole())) {
             user = userService.getById(issueRejectPayload.rejectedById());
             issue.setRejectedByAdmin(user.getUsername());
-        }
-        else if(Role.DEVELOPER.getName().equalsIgnoreCase(issueRejectPayload.rejectedByRole())) {
+        } else if (Role.DEVELOPER.getName().equalsIgnoreCase(issueRejectPayload.rejectedByRole())) {
             Developer developer = developerService.getById(issueRejectPayload.rejectedById());
             user = developer.getUser();
             issue.setRejectedBy(developer);
@@ -153,66 +188,58 @@ public class IssueService {
         User user = userService.getById(issueStatusUpdatePayload.workedBy());
         Developer developer = developerService.getByUserId(user.getId());
 
-        if(IssueStatus.PENDING.equals(issueStatusUpdatePayload.fromStatus()) ||
+        if (IssueStatus.PENDING.equals(issueStatusUpdatePayload.fromStatus()) ||
                 IssueStatus.INPROGRESS.equals(issueStatusUpdatePayload.fromStatus())) {
 
-            if(IssueStatus.PENDING.equals(issueStatusUpdatePayload.toStatus()) ||
+            if (IssueStatus.PENDING.equals(issueStatusUpdatePayload.toStatus()) ||
                     IssueStatus.INPROGRESS.equals(issueStatusUpdatePayload.toStatus())) {
                 issue.setStatus(issueStatusUpdatePayload.toStatus());
                 issue.setAssignedTo(developer);
-            }
-            else if(IssueStatus.COMPLETED.equals(issueStatusUpdatePayload.toStatus())) {
+            } else if (IssueStatus.COMPLETED.equals(issueStatusUpdatePayload.toStatus())) {
                 issue.setStatus(issueStatusUpdatePayload.toStatus());
                 issue.setAssignedTo(null);
                 issue.setResolvedBy(developer);
                 issue.setCompletedAt(LocalDateTime.now());
                 issue.setCompletedReason(issueStatusUpdatePayload.completedAnalysis());
-            }
-            else if(IssueStatus.REJECTED.equals(issueStatusUpdatePayload.toStatus())) {
+            } else if (IssueStatus.REJECTED.equals(issueStatusUpdatePayload.toStatus())) {
                 issue.setStatus(issueStatusUpdatePayload.toStatus());
                 issue.setAssignedTo(null);
                 issue.setRejectedBy(developer);
                 issue.setRejectedAt(LocalDateTime.now());
                 issue.setRejectionReason(issueStatusUpdatePayload.rejectionReason());
             }
-        }
-        else if(IssueStatus.COMPLETED.equals(issueStatusUpdatePayload.fromStatus())) {
-            if(IssueStatus.PENDING.equals(issueStatusUpdatePayload.toStatus()) ||
+        } else if (IssueStatus.COMPLETED.equals(issueStatusUpdatePayload.fromStatus())) {
+            if (IssueStatus.PENDING.equals(issueStatusUpdatePayload.toStatus()) ||
                     IssueStatus.INPROGRESS.equals(issueStatusUpdatePayload.toStatus())) {
                 issue.setStatus(issueStatusUpdatePayload.toStatus());
                 issue.setAssignedTo(developer);
                 issue.setResolvedBy(null);
-            }
-            else if(IssueStatus.COMPLETED.equals(issueStatusUpdatePayload.toStatus())) {
+            } else if (IssueStatus.COMPLETED.equals(issueStatusUpdatePayload.toStatus())) {
                 issue.setStatus(issueStatusUpdatePayload.toStatus());
                 issue.setAssignedTo(null);
                 issue.setResolvedBy(developer);
                 issue.setCompletedAt(LocalDateTime.now());
                 issue.setCompletedReason(issueStatusUpdatePayload.completedAnalysis());
-            }
-            else if(IssueStatus.REJECTED.equals(issueStatusUpdatePayload.toStatus())) {
+            } else if (IssueStatus.REJECTED.equals(issueStatusUpdatePayload.toStatus())) {
                 issue.setStatus(issueStatusUpdatePayload.toStatus());
                 issue.setResolvedBy(null);
                 issue.setRejectedBy(developer);
                 issue.setRejectedAt(LocalDateTime.now());
                 issue.setRejectionReason(issueStatusUpdatePayload.rejectionReason());
             }
-        }
-        else if(IssueStatus.REJECTED.equals(issueStatusUpdatePayload.fromStatus())) {
-            if(IssueStatus.PENDING.equals(issueStatusUpdatePayload.toStatus()) ||
+        } else if (IssueStatus.REJECTED.equals(issueStatusUpdatePayload.fromStatus())) {
+            if (IssueStatus.PENDING.equals(issueStatusUpdatePayload.toStatus()) ||
                     IssueStatus.INPROGRESS.equals(issueStatusUpdatePayload.toStatus())) {
                 issue.setStatus(issueStatusUpdatePayload.toStatus());
                 issue.setAssignedTo(developer);
                 issue.setRejectedBy(null);
-            }
-            else if(IssueStatus.COMPLETED.equals(issueStatusUpdatePayload.toStatus())) {
+            } else if (IssueStatus.COMPLETED.equals(issueStatusUpdatePayload.toStatus())) {
                 issue.setStatus(issueStatusUpdatePayload.toStatus());
                 issue.setResolvedBy(developer);
                 issue.setRejectedBy(null);
                 issue.setCompletedAt(LocalDateTime.now());
                 issue.setCompletedReason(issueStatusUpdatePayload.completedAnalysis());
-            }
-            else if(IssueStatus.REJECTED.equals(issueStatusUpdatePayload.toStatus())) {
+            } else if (IssueStatus.REJECTED.equals(issueStatusUpdatePayload.toStatus())) {
                 issue.setStatus(issueStatusUpdatePayload.toStatus());
                 issue.setRejectedBy(developer);
                 issue.setRejectedAt(LocalDateTime.now());
@@ -229,14 +256,12 @@ public class IssueService {
 
         Developer developer = developerService.getById(developerId);
 
-        if(IssueStatus.PENDING.equals(issue.getStatus()) ||
+        if (IssueStatus.PENDING.equals(issue.getStatus()) ||
                 IssueStatus.INPROGRESS.equals(issue.getStatus())) {
             issue.setAssignedTo(developer);
-        }
-        else if(IssueStatus.COMPLETED.equals(issue.getStatus())) {
+        } else if (IssueStatus.COMPLETED.equals(issue.getStatus())) {
             issue.setResolvedBy(developer);
-        }
-        else if(IssueStatus.REJECTED.equals(issue.getStatus())) {
+        } else if (IssueStatus.REJECTED.equals(issue.getStatus())) {
             issue.setRejectedBy(developer);
         }
 
@@ -253,11 +278,9 @@ public class IssueService {
     public List<IssueCountDto> getAllIssueCount() {
         List<Issue> issues = issueRepository.findAll();
         Map<IssueStatus, Long> issueCountMap = new HashMap<>();
-
         for (Issue issue : issues) {
             issueCountMap.merge(issue.getStatus(), 1L, Long::sum);
         }
-
         return issueCountMap.entrySet()
                 .stream()
                 .map(e -> new IssueCountDto(e.getKey(), e.getValue()))
@@ -270,49 +293,47 @@ public class IssueService {
         return new IssueCountDto(issueStatus, count);
     }
 
-
-    //code for the file
-    public Issue createIssueWithFiles(String title, String description, Long userId, String category, List<String> uploadedFilenames) {
-        // Get user
+    /** Create issue + persist file metadata. */
+    public IssueDto createIssueWithFiles(
+            String title,
+            String description,
+            Long userId,
+            List<Long> categoryIds,
+            List<String> uploadedFilenames
+    ) {
         User user = userService.getById(userId);
+        List<Category> categories = categoryService.getCategoriesByCategoryIdList(categoryIds);
 
-        // Create issue and save
         Issue issue = new Issue();
         issue.setTitle(title);
         issue.setDescription(description);
         issue.setUser(user);
         issue.setStatus(IssueStatus.PENDING);
-
-
         issue.setCreatedAt(LocalDateTime.now());
+        issue.setCategories(categories);
+        Issue savedIssue = issueRepository.save(issue);
 
-        Issue savedIssue = issueRepository.save(issue); // Save to get issue ID
+        if (uploadedFilenames != null && !uploadedFilenames.isEmpty()) {
+            List<IssueFile> issueFiles = uploadedFilenames.stream()
+                    .map(fileName -> IssueFile.builder()
+                            .fileName(fileName)
+                            .issue(savedIssue)
+                            .user(user)
+                            .build())
+                    .collect(Collectors.toList());
+            issueFileRepository.saveAll(issueFiles);
+        }
 
-        // Map each filename to an IssueFile entity
-        List<IssueFile> issueFiles = uploadedFilenames.stream()
-                .map(fileName -> IssueFile.builder()
-                        .fileName(fileName)
-                        .issue(savedIssue)
-                        .user(user)
-                        .build())
-                .collect(Collectors.toList());
-
-        // Save file metadata to DB
-        issueFileRepository.saveAll(issueFiles);
-
-        return savedIssue;
+        return IssueMapper.entityToDto(savedIssue, user, categories);
     }
 
-    // Utility method (optional): Save actual file to D:/iums_images
+    // disk helper
     public String saveFileToDisk(String userId, String originalFilename, byte[] fileBytes) throws Exception {
         String dirPath = FILE_SAVE_DIRECTORY + "/" + userId;
         File dir = new File(dirPath);
-        if (!dir.exists()) {
-            dir.mkdirs();
-        }
-
+        if (!dir.exists()) dir.mkdirs();
         File savedFile = new File(dir, originalFilename);
         java.nio.file.Files.write(savedFile.toPath(), fileBytes);
-        return originalFilename; // Return saved file name
+        return originalFilename;
     }
 }
