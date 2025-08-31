@@ -27,7 +27,7 @@ public class DeveloperService {
     private final DeveloperRepository developerRepository;
     private final UserService userService;
 
-    @IsAuthorizedPerson
+
     public List<Developer> getAll() {
         logger.info("Executing the findAll method for getting all the developers");
         return developerRepository.findAll();

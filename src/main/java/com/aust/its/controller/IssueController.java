@@ -28,6 +28,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @CrossOrigin(origins = "http://localhost:4200")
 @RestController
@@ -40,6 +41,13 @@ public class IssueController {
     private final IssueService issueService;
     private final UserService userService;
     private final CategoryService categoryService;
+
+    @PutMapping("{id}/category/by-name")
+    public IssueDto setIssueCategoryByName(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        String name = body.get("categoryName");
+        if (name == null || name.isBlank()) throw new RuntimeException("categoryName required");
+        return issueService.setIssueCategoryByName(id, name);
+    }
 
     @PostMapping
     public IssueDto submitIssue(@RequestBody IssuePayload issuePayload) {

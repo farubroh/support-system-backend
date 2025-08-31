@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -37,13 +38,21 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
                 final String token = header.substring(7);
                 logger.debug("JWT present ({} chars)", token.length());
 
+                // JwtAuthorizationFilter.java
                 JwtUsrInfo info = authenticationService.extractJwtUserInfo(token);
+
+                String role = info.role();
+                if (role == null || role.isBlank()) role = "USER";
+                if (role.startsWith("ROLE_")) role = role.substring(5);
+                role = role.toUpperCase();
 
                 var auth = new UsernamePasswordAuthenticationToken(
                         info.username(),
                         null,
-                        List.of(new SimpleGrantedAuthority("ROLE_" + info.role()))
+                        List.of(new SimpleGrantedAuthority("ROLE_" + role))
                 );
+                SecurityContextHolder.getContext().setAuthentication(auth);
+
                 auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
 

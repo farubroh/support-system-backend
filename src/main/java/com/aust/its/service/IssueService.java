@@ -336,4 +336,14 @@ public class IssueService {
         java.nio.file.Files.write(savedFile.toPath(), fileBytes);
         return originalFilename;
     }
+    // IssueService.java
+    public IssueDto setIssueCategoryByName(Long issueId, String categoryName) {
+        Issue issue = issueRepository.findById(issueId)
+                .orElseThrow(() -> new RuntimeException("Issue not found with ID: " + issueId));
+        Category category = categoryService.getOrCreateByName(categoryName);
+        issue.setCategories(List.of(category)); // replace with single selection; make it List.of(...)
+        Issue saved = issueRepository.save(issue);
+        return IssueMapper.entityToDto(saved, saved.getUser(), saved.getCategories());
+    }
+
 }

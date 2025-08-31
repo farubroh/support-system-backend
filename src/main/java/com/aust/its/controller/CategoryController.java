@@ -1,6 +1,8 @@
 package com.aust.its.controller;
 
 import com.aust.its.dto.CategoryDto;
+import com.aust.its.dto.UpdateIssueCategoriesPayload;
+import com.aust.its.dto.model.IssueDto;
 import com.aust.its.service.CategoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -50,5 +52,6 @@ public class CategoryController {
         }
         return "Deleted";
     }
+
 
 }

@@ -21,7 +21,7 @@ public class DeveloperController {
 
     private final DeveloperService developerService;
 
-//    @PreAuthorize("hasRole('Admin') || hasRole('Developer')")
+    @PreAuthorize("hasRole('ADMIN') || hasRole('DEVELOPER')")
     @GetMapping
     public List<Developer> getDevelopers() {
         logger.info("getDevelopers from controller");
