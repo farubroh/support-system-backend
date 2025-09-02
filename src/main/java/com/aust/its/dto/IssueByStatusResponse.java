@@ -23,11 +23,15 @@ public class IssueByStatusResponse {
     private String completedReason;
     private String rejectedReason;
     private String serialId;
+
+    /** Name of the relevant developer (assigned/resolved/rejected). */
     private String developerName;
 
-    // New: make admin UI receive category data directly
-    private String category;               // primary/first category name
-    private List<CategoryDto> categories;
-    private List<String> files;
+    /** NEW: ID of the relevant developer for this status view. */
+    private Long developerId;
 
+    // Admin UI convenience
+    private String category;               // primary category name
+    private List<CategoryDto> categories;  // all categories
+    private List<String> files;            // filenames
 }
