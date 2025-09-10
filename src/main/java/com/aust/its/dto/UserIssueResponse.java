@@ -23,4 +23,6 @@ public class UserIssueResponse {
 
     private UserDto user;                     // minimal user info
     private List<String> files;               // filenames saved for this issue
+    private String completedReason;
+    private String rejectionReason;
 }

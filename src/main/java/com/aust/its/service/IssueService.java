@@ -126,6 +126,8 @@ public class IssueService {
                     .categories(categoryDtos)
                     .user(userDto)
                     .files(files)
+                    .completedReason(issue.getCompletedReason())
+                    .rejectionReason(issue.getRejectionReason())
                     .build();
         }).toList();
     }
