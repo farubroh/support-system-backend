@@ -172,4 +172,16 @@ public class IssueController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteIssue(@PathVariable Long id) {
+        try {
+            issueService.deleteIssue(id);
+            return ResponseEntity.ok(Map.of("message", "Issue deleted successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+
 }

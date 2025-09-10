@@ -28,6 +28,19 @@ import java.util.Arrays;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
+
+    //SecurityConfig = rules of the building (who can enter which room).
+    //
+    //JWT Filter = the security guard checking your ID (token).
+    //
+    //401 handler = “you don’t even have an ID card → go away.”
+    //
+    //403 handler = “you have an ID card, but not access to this room.”
+    //
+    //CORS Filter = special permission for the Angular frontend to even talk to backend.
+    //
+    //Controller → Service → Repository = normal workflow once you’re inside.
+
     private static final Logger logger = LoggerFactory.getLogger(SecurityConfig.class);
 
     private final AuthenticationService authenticationService;
@@ -46,7 +59,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/issues/files/**").permitAll()
                         // Everything else needs authentication
-                        .requestMatchers(HttpMethod.DELETE, "/api/issues/**").permitAll()
+                        .requestMatchers(HttpMethod.DELETE, "/api/issues/**").authenticated()
+
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(eh -> eh
@@ -59,6 +73,7 @@ public class SecurityConfig {
 
     @Bean
     public JwtAuthorizationFilter jwtAuthorizationFilter() {
+
         return new JwtAuthorizationFilter(authenticationService);
     }
 

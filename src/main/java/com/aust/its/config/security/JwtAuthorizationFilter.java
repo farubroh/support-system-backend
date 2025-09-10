@@ -25,6 +25,15 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
 
     private final AuthenticationService authenticationService;
 
+
+    //summer of the code
+
+    // This filter intercepts every request, pulls the JWT from headers, validates it,
+    // converts it into a Spring Security Authentication object, and puts it into SecurityContextHolder.
+    // Then the rest of your app
+    // (controllers, @PreAuthorize, SecurityConfig) can use that info to enforce authorization.
+
+
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,

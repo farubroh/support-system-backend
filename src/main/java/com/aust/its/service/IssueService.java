@@ -347,5 +347,11 @@ public class IssueService {
         Issue saved = issueRepository.save(issue);
         return IssueMapper.entityToDto(saved, saved.getUser(), saved.getCategories());
     }
+    public void deleteIssue(Long issueId) {
+        Issue issue = issueRepository.findById(issueId)
+                .orElseThrow(() -> new RuntimeException("Issue not found with ID: " + issueId));
+        issueRepository.delete(issue);
+    }
+
 
 }
