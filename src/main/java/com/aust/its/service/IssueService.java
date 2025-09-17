@@ -352,6 +352,11 @@ public class IssueService {
                 .orElseThrow(() -> new RuntimeException("Issue not found with ID: " + issueId));
         issueRepository.delete(issue);
     }
+    public Issue getIssueById(Long issueId) {
+        return issueRepository.findById(issueId)
+                .orElseThrow(() -> new RuntimeException("Issue not found with ID: " + issueId));
+    }
+
 
 
 }
