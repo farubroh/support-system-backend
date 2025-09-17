@@ -16,19 +16,19 @@ public class Comment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    private String content;
+    private String comment;  // Renamed from content to comment for clarity
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "issue_id")
     private Issue issue;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    private User user;
+    @JoinColumn(name = "created_by_id")
+    private User createdBy;  // User who created the comment
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "developer_id")
-    private Developer developer;
+    private Developer developer;  // Developer who worked on the issue
 
     private LocalDateTime createdAt;
 

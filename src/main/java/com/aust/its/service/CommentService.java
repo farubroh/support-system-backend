@@ -28,32 +28,31 @@ public class CommentService {
         return comments.stream()
                 .map(comment -> CommentDto.builder()
                         .id(comment.getId())
-                        .content(comment.getContent())
-                        .userDto(UserMapper.entityToDto(comment.getUser()))
-                        .developerDto(DeveloperMapper.entityToDto(comment.getDeveloper()))
+                        .comment(comment.getComment())  // Update content to comment
+                        .createdByDto(UserMapper.entityToDto(comment.getCreatedBy()))  // User who created the comment
+                        .developerDto(DeveloperMapper.entityToDto(comment.getDeveloper()))  // Developer associated
                         .createdAt(comment.getCreatedAt())
                         .build())
                 .collect(Collectors.toList());
     }
 
-    public CommentDto saveComment(Long issueId, Long userId, Long developerId, String content) {
-        // Fetch issue by ID using the newly added method in IssueService
-        Issue issue = issueService.getIssueById(issueId);  // This will now work
+    public CommentDto saveComment(Long issueId, Long userId, Long developerId, String commentContent) {
+        Issue issue = issueService.getIssueById(issueId);
         User user = userService.getById(userId);
         Developer developer = developerService.getById(developerId);
 
         Comment comment = new Comment();
         comment.setIssue(issue);
-        comment.setUser(user);
+        comment.setCreatedBy(user);
         comment.setDeveloper(developer);
-        comment.setContent(content);
+        comment.setComment(commentContent);
 
         Comment savedComment = commentRepository.save(comment);
 
         return CommentDto.builder()
                 .id(savedComment.getId())
-                .content(savedComment.getContent())
-                .userDto(UserMapper.entityToDto(savedComment.getUser()))
+                .comment(savedComment.getComment())  // Update content to comment
+                .createdByDto(UserMapper.entityToDto(savedComment.getCreatedBy()))
                 .developerDto(DeveloperMapper.entityToDto(savedComment.getDeveloper()))
                 .createdAt(savedComment.getCreatedAt())
                 .build();
