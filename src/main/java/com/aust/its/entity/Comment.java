@@ -5,7 +5,6 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
-
 @Entity
 @Table(name = "comments")
 @Getter
@@ -16,7 +15,7 @@ public class Comment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    private String comment;  // Renamed from content to comment for clarity
+    private String comment;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "issue_id")
@@ -27,8 +26,8 @@ public class Comment {
     private User createdBy;  // User who created the comment
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "developer_id")
-    private Developer developer;  // Developer who worked on the issue
+    @JoinColumn(name = "developer_id")  // optional relationship
+    private Developer developer;  // Developer who created the comment
 
     private LocalDateTime createdAt;
 

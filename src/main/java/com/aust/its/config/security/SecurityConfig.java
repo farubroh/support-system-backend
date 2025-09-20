@@ -60,6 +60,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/issues/files/**").permitAll()
                         // Everything else needs authentication
                         .requestMatchers(HttpMethod.DELETE, "/api/issues/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/comments**/").permitAll()
 
                         .anyRequest().authenticated()
                 )

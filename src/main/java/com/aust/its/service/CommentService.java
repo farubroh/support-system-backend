@@ -36,22 +36,35 @@ public class CommentService {
                 .collect(Collectors.toList());
     }
 
-    public CommentDto saveComment(Long issueId, Long userId, Long developerId, String commentContent) {
+    public CommentDto saveComment(Long issueId, Long userId,
+                                  Long developerId,
+                                  String commentContent) {
         Issue issue = issueService.getIssueById(issueId);
         User user = userService.getById(userId);
-        Developer developer = developerService.getById(developerId);
+
+        // Determine the developer who worked on the issue
+        Developer developer = null;
+        if (issue.getResolvedBy() != null) {
+            developer = issue.getResolvedBy();  // If resolved by a developer
+        } else if (issue.getRejectedBy() != null) {
+            developer = issue.getRejectedBy();  // If rejected by a developer
+        } else if (issue.getAssignedTo() != null) {
+            developer = issue.getAssignedTo();  // If assigned to a developer
+        }
+
+        // If no developer is assigned, resolved, or rejected, you can set developer to null or handle accordingly.
 
         Comment comment = new Comment();
         comment.setIssue(issue);
         comment.setCreatedBy(user);
-        comment.setDeveloper(developer);
+        comment.setDeveloper(developer);  // Assign the developer who worked on the issue
         comment.setComment(commentContent);
 
         Comment savedComment = commentRepository.save(comment);
 
         return CommentDto.builder()
                 .id(savedComment.getId())
-                .comment(savedComment.getComment())  // Update content to comment
+                .comment(savedComment.getComment())
                 .createdByDto(UserMapper.entityToDto(savedComment.getCreatedBy()))
                 .developerDto(DeveloperMapper.entityToDto(savedComment.getDeveloper()))
                 .createdAt(savedComment.getCreatedAt())

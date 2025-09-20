@@ -22,7 +22,7 @@ public class CommentController {
 
     @PostMapping("/add")
     public CommentDto addComment(@RequestParam Long issueId, @RequestParam Long userId,
-                                 @RequestParam Long developerId, @RequestParam String comment) {
+                                 @RequestParam(required = false) Long developerId, @RequestParam String comment) {
         return commentService.saveComment(issueId, userId, developerId, comment);
     }
 }
