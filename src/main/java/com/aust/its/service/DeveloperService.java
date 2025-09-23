@@ -198,8 +198,8 @@ public class DeveloperService {
                 .build();
     }
 
-    public Developer getByUserId(String userId) {
-        User user = userService.getById(userId);
+    public Developer getByUserId(long userId) {
+        User user = userService.getById(String.valueOf(userId));
         return developerRepository.findByUser(user);
     }
 }

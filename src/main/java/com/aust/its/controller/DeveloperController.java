@@ -33,7 +33,7 @@ public class DeveloperController {
 
     @DeveloperIssueApiDoc
     @GetMapping("{id}/issues")
-    public ResponseEntity<IssuesOfDeveloperDto> getIssuesOfDeveloper(@PathVariable("id") String userId) {
+    public ResponseEntity<IssuesOfDeveloperDto> getIssuesOfDeveloper(@PathVariable("id") long userId) {
         Developer developer = developerService.getByUserId(userId);
         return ResponseEntity.ok(developerService.getIssuesOfDeveloper(developer.getId()));
     }

@@ -8,7 +8,7 @@ import java.util.List;
 public class CategoryMapper {
 
     public static CategoryDto entityToDto(Category category) {
-        return new CategoryDto(category.getCategoryName());
+        return new CategoryDto(category.getId(), category.getCategoryName());
     }
 
     public static Category dtoToEntity(CategoryDto dto) {

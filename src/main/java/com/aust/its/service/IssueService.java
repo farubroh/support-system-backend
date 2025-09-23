@@ -2,12 +2,14 @@ package com.aust.its.service;
 
 import com.aust.its.dto.*;
 import com.aust.its.dto.model.IssueDto;
+import com.aust.its.dto.model.UserDto;
 import com.aust.its.dto.pagination.PageResponse;
 import com.aust.its.entity.*;
 import com.aust.its.enums.IssueStatus;
 import com.aust.its.enums.Role;
 import com.aust.its.mapper.CategoryMapper;
 import com.aust.its.mapper.IssueMapper;
+import com.aust.its.mapper.UserMapper;
 import com.aust.its.repository.IssueFileRepository;
 import com.aust.its.repository.IssueRepository;
 import lombok.RequiredArgsConstructor;
@@ -79,6 +81,38 @@ public class IssueService {
 
         return responses;
     }
+    @Transactional(readOnly = true)
+    public List<UserIssueResponse> getUserIssuesWithStatus(String userId, IssueStatus status) {
+        List<Issue> issues = issueRepository.findByUserIdAndStatus(userId, status);
+
+        return issues.stream().map(issue -> {
+            var categoryDtos = (issue.getCategories() == null)
+                    ? List.<CategoryDto>of()
+                    : issue.getCategories().stream().map(CategoryMapper::entityToDto).toList();
+            String primaryCategory = categoryDtos.isEmpty() ? null : categoryDtos.get(0).categoryName();
+
+            List<String> files = issueFileRepository.findByIssueId(issue.getId())
+                    .stream()
+                    .map(IssueFile::getFileName)
+                    .collect(Collectors.toList());
+
+            UserDto userDto = UserMapper.entityToDto(issue.getUser());
+
+            return UserIssueResponse.builder()
+                    .id(issue.getId())
+                    .title(issue.getTitle())
+                    .description(issue.getDescription())
+                    .status(issue.getStatus())
+                    .createdAt(issue.getCreatedAt())
+                    .category(primaryCategory)
+                    .categories(categoryDtos)
+                    .user(userDto)
+                    .files(files)
+                    .completedReason(issue.getCompletedReason())
+                    .rejectionReason(issue.getRejectionReason())
+                    .build();
+        }).toList();
+    }
 
     @Transactional
     public DeveloperAssignedResponse assignIssue(Long issueId, final IssueAssignPayload issueAssignPayload) {
@@ -139,7 +173,7 @@ public class IssueService {
                 .orElseThrow(() -> new RuntimeException("issue not found with issue id : " + issueId));
 
         User user = userService.getById(issueStatusUpdatePayload.workedBy());
-        Developer developer = developerService.getByUserId(user.getId());
+        Developer developer = developerService.getByUserId(Long.parseLong(user.getId()));
 
         if(IssueStatus.PENDING.equals(issueStatusUpdatePayload.fromStatus()) ||
                 IssueStatus.INPROGRESS.equals(issueStatusUpdatePayload.fromStatus())) {
@@ -269,32 +303,40 @@ public class IssueService {
     }
 
     //code for the file
-    public Issue createIssueWithFiles(String title, String description, String userId, String category, List<String> uploadedFilenames) {
-        // Get user
-        User user = userService.getById(userId);
+    public IssueDto createIssueWithFiles(
+            String title,
+            String description,
+            Long userId,
+            List<Long> categoryIds, // This parameter is expected
+            List<String> uploadedFilenames
+    ) {
+        User user = userService.getById(String.valueOf(userId));
+        List<Category> categories = categoryService.getCategoriesByCategoryIdList(categoryIds); // Here we fetch categories by IDs
 
-        // Create issue and save
         Issue issue = new Issue();
         issue.setTitle(title);
         issue.setDescription(description);
         issue.setUser(user);
         issue.setStatus(IssueStatus.PENDING);
         issue.setCreatedAt(LocalDateTime.now());
+        issue.setCategories(categories);
 
         Issue savedIssue = issueRepository.save(issue);
 
-        List<IssueFile> issueFiles = uploadedFilenames.stream()
-                .map(fileName -> IssueFile.builder()
-                        .fileName(fileName)
-                        .issue(savedIssue)
-                        .user(user)
-                        .build())
-                .collect(Collectors.toList());
+        if (uploadedFilenames != null && !uploadedFilenames.isEmpty()) {
+            List<IssueFile> issueFiles = uploadedFilenames.stream()
+                    .map(fileName -> IssueFile.builder()
+                            .fileName(fileName)
+                            .issue(savedIssue)
+                            .user(user)
+                            .build())
+                    .collect(Collectors.toList());
+            issueFileRepository.saveAll(issueFiles);
+        }
 
-
-        issueFileRepository.saveAll(issueFiles);
-        return savedIssue;
+        return IssueMapper.entityToDto(savedIssue, user, categories);
     }
+
 
     // Utility method (optional): Save actual file to D:/iums_images
     public String saveFileToDisk(String userId, String originalFilename, byte[] fileBytes) throws Exception {
@@ -346,5 +388,23 @@ public class IssueService {
                 .totalPages(issuePage.getTotalPages())
                 .last(issuePage.isLast())
                 .build();
+    }
+
+    public IssueDto setIssueCategoryByName(Long issueId, String categoryName) {
+        Issue issue = issueRepository.findById(issueId)
+                .orElseThrow(() -> new RuntimeException("Issue not found with ID: " + issueId));
+        Category category = categoryService.getOrCreateByName(categoryName);
+        issue.setCategories(List.of(category)); // replace with single selection; make it List.of(...)
+        Issue saved = issueRepository.save(issue);
+        return IssueMapper.entityToDto(saved, saved.getUser(), saved.getCategories());
+    }
+    public void deleteIssue(Long issueId) {
+        Issue issue = issueRepository.findById(issueId)
+                .orElseThrow(() -> new RuntimeException("Issue not found with ID: " + issueId));
+        issueRepository.delete(issue);
+    }
+    public Issue getIssueById(Long issueId) {
+        return issueRepository.findById(issueId)
+                .orElseThrow(() -> new RuntimeException("Issue not found with ID: " + issueId));
     }
 }

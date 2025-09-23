@@ -47,4 +47,9 @@ public class CategoryService {
     public List<Category> getCategoriesByCategoryIdList(List<Long> categoryIdList) {
         return categoryRepository.findAllById(categoryIdList);
     }
+    // CategoryService.java
+    public Category getOrCreateByName(String name) {
+        return categoryRepository.findByCategoryName(name)
+                .orElseGet(() -> categoryRepository.save(CategoryMapper.dtoToEntity(new CategoryDto(0, name))));
+    }
 }

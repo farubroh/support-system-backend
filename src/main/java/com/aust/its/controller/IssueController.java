@@ -5,7 +5,9 @@ import com.aust.its.dto.model.IssueDto;
 import com.aust.its.dto.pagination.PageResponse;
 import com.aust.its.entity.Issue;
 import com.aust.its.enums.IssueStatus;
+import com.aust.its.service.CategoryService;
 import com.aust.its.service.IssueService;
+import com.aust.its.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -31,7 +33,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-
+import java.util.Map;
 @Tag(name = "Issue APIs", description = "Issue related APIs")
 @CrossOrigin(origins = "http://localhost:3000")
 @RestController
@@ -41,6 +43,8 @@ public class IssueController {
 
     private static final Logger logger = LoggerFactory.getLogger(IssueController.class);
     private final IssueService issueService;
+    private final UserService userService;
+    private final CategoryService categoryService;
 
     @Operation(
             summary = "Get All Issues",
@@ -192,6 +196,26 @@ public class IssueController {
         logger.info("finding issues of status :: {}", status);
         return ResponseEntity.ok(issueService.getIssuesByStatus(status));
     }
+    @Operation(
+            summary = "Set Issue Category by Name",
+            description = "Assign a category to an issue by category name.",
+            parameters = {
+                    @Parameter(name = "id", description = "Issue ID", required = true, example = "101"),
+                    @Parameter(name = "categoryName", description = "Category name to be assigned", required = true, example = "Bug")
+            },
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Category assigned to issue successfully"),
+                    @ApiResponse(responseCode = "400", description = "Invalid input"),
+                    @ApiResponse(responseCode = "404", description = "Category not found"),
+                    @ApiResponse(responseCode = "500", description = "Internal server error")
+            }
+    )
+    @PutMapping("{id}/category/by-name")
+    public IssueDto setIssueCategoryByName(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        String name = body.get("categoryName");
+        if (name == null || name.isBlank()) throw new RuntimeException("categoryName required");
+        return issueService.setIssueCategoryByName(id, name);
+    }
 
 
     @Operation(
@@ -229,6 +253,83 @@ public class IssueController {
         logger.info("Assigning issue {} to developer", id);
         return ResponseEntity.ok(issueService.assignIssue(id, issueAssignPayload));
     }
+
+    @Operation(
+            summary = "Delete Issue",
+            description = "Delete an issue by its ID.",
+            parameters = {
+                    @Parameter(name = "id", description = "Issue ID", required = true, example = "101")
+            },
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Issue deleted successfully"),
+                    @ApiResponse(responseCode = "404", description = "Issue not found"),
+                    @ApiResponse(responseCode = "500", description = "Internal server error")
+            }
+    )
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteIssue(@PathVariable Long id) {
+        try {
+            issueService.deleteIssue(id);
+            return ResponseEntity.ok(Map.of("message", "Issue deleted successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+    @Operation(
+            summary = "Create Issue with Files",
+            description = "Create a new issue with attached files.",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    description = "Issue details with files",
+                    content = @Content(schema = @Schema(implementation = IssuePayload.class))
+            ),
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Issue created successfully with files"),
+                    @ApiResponse(responseCode = "500", description = "Error saving issue")
+            }
+    )
+    @PostMapping("/with-files")
+    public ResponseEntity<?> createIssueWithFiles(
+            @RequestParam("title") String title,
+            @RequestParam("description") String description,
+            @RequestParam("userId") long userId,
+            @RequestParam("categoryIds") List<Long> categoryIds,
+            @RequestParam(value = "files", required = false) List<MultipartFile> files
+    ) {
+        try {
+            List<String> savedFileNames = new ArrayList<>();
+
+            if (files != null && !files.isEmpty()) {
+                for (MultipartFile file : files) {
+                    String originalFilename = file.getOriginalFilename();
+                    if (originalFilename == null || originalFilename.isBlank()) continue;
+
+                    String uploadDir = "D:/iums_images/" + userId;
+                    File dir = new File(uploadDir);
+                    if (!dir.exists()) dir.mkdirs();
+
+                    File dest = new File(uploadDir, originalFilename);
+                    file.transferTo(dest);
+
+                    savedFileNames.add(originalFilename);
+                }
+            }
+
+            IssueDto dto = issueService.createIssueWithFiles(
+                    title, description, userId, categoryIds, savedFileNames
+            );
+
+            return ResponseEntity.ok(dto);
+
+        } catch (Exception e) {
+            logger.error("Error saving issue with files", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error saving issue: " + e.getMessage());
+        }
+    }
+
+
 
 
     @Operation(
@@ -403,8 +504,8 @@ public class IssueController {
     public ResponseEntity<?> createIssueWithFiles(
             @RequestParam("title") String title,
             @RequestParam("description") String description,
-            @RequestParam("userId") String userId,
-            @RequestParam("category") String category,
+            @RequestParam("userId") Long userId,
+            @RequestParam("categoryIds") List<Long> categoryIds, // Fix here: Use categoryIds instead of category
             @RequestParam(value = "files", required = false) List<MultipartFile> files
     ) {
         try {
@@ -428,8 +529,9 @@ public class IssueController {
                 }
             }
 
-            Issue newIssue = issueService.createIssueWithFiles(
-                    title, description, userId, category, savedFileNames
+            // Call the service method with the correct categoryIds
+            IssueDto newIssue = issueService.createIssueWithFiles(
+                    title, description, userId, categoryIds, savedFileNames // Corrected here
             );
 
             return ResponseEntity.ok(newIssue);
@@ -442,10 +544,23 @@ public class IssueController {
     }
 
 
+    @Operation(
+            summary = "Get File",
+            description = "Retrieve a specific file by user ID and filename.",
+            parameters = {
+                    @Parameter(name = "userId", description = "User ID", required = true, example = "user123"),
+                    @Parameter(name = "filename", description = "File name", required = true, example = "file1.png")
+            },
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "File retrieved successfully"),
+                    @ApiResponse(responseCode = "404", description = "File not found"),
+                    @ApiResponse(responseCode = "500", description = "Internal server error")
+            }
+    )
     @GetMapping("/files/{userId}/{filename:.+}")
     public ResponseEntity<Resource> getFile(@PathVariable String userId, @PathVariable String filename) {
         try {
-            Path path = Paths.get("C:/Users/austi/Downloads/iums_images" + userId).resolve(filename);
+            Path path = Paths.get("D:\\Austi" + userId).resolve(filename);
             Resource resource = new UrlResource(path.toUri());
 
             if (!resource.exists()) {
@@ -465,4 +580,7 @@ public class IssueController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
+
+
 }

@@ -26,6 +26,7 @@ public class UserService {
         return userRepository.findById(userId).orElse(null);
     }
 
+
     public HelpDeskUser register(RegisterPayload payload) {
         Optional<User> userOptional = userRepository.findById(payload.userId());
 
