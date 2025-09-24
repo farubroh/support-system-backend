@@ -9,6 +9,9 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+
+import java.util.Arrays;
 
 @Configuration
 @EnableMethodSecurity
@@ -18,12 +21,21 @@ public class SecurityConfig {
 
     private final CustomAuthenticationManager customAuthenticationManager;
     private final JwtAuthorizationFilter jwtAuthorizationFilter;
+    private final CustomAuthenticationEntrypoint customAuthenticationEntrypoint;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, CustomAuthenticationEntrypoint customAuthenticationEntrypoint) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
-                .authorizeHttpRequests(auth -> auth
+                .cors(c -> c.configurationSource(request -> {
+                    var config = new CorsConfiguration();
+                    config.setAllowedOrigins(Arrays.asList("http://localhost:4200"));
+                    config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+                    config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept"));
+                    config.setAllowCredentials(true);
+                    return config;
+                }))
+                .authorizeRequests(auth -> auth
                         .requestMatchers(Const.WHITE_LIST).permitAll()
                         .anyRequest().authenticated()
                 )

@@ -276,58 +276,7 @@ public class IssueController {
                     .body(Map.of("error", e.getMessage()));
         }
     }
-    @Operation(
-            summary = "Create Issue with Files",
-            description = "Create a new issue with attached files.",
-            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    required = true,
-                    description = "Issue details with files",
-                    content = @Content(schema = @Schema(implementation = IssuePayload.class))
-            ),
-            responses = {
-                    @ApiResponse(responseCode = "200", description = "Issue created successfully with files"),
-                    @ApiResponse(responseCode = "500", description = "Error saving issue")
-            }
-    )
-    @PostMapping("/with-files")
-    public ResponseEntity<?> createIssueWithFiles(
-            @RequestParam("title") String title,
-            @RequestParam("description") String description,
-            @RequestParam("userId") long userId,
-            @RequestParam("categoryIds") List<Long> categoryIds,
-            @RequestParam(value = "files", required = false) List<MultipartFile> files
-    ) {
-        try {
-            List<String> savedFileNames = new ArrayList<>();
 
-            if (files != null && !files.isEmpty()) {
-                for (MultipartFile file : files) {
-                    String originalFilename = file.getOriginalFilename();
-                    if (originalFilename == null || originalFilename.isBlank()) continue;
-
-                    String uploadDir = "D:/iums_images/" + userId;
-                    File dir = new File(uploadDir);
-                    if (!dir.exists()) dir.mkdirs();
-
-                    File dest = new File(uploadDir, originalFilename);
-                    file.transferTo(dest);
-
-                    savedFileNames.add(originalFilename);
-                }
-            }
-
-            IssueDto dto = issueService.createIssueWithFiles(
-                    title, description, userId, categoryIds, savedFileNames
-            );
-
-            return ResponseEntity.ok(dto);
-
-        } catch (Exception e) {
-            logger.error("Error saving issue with files", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error saving issue: " + e.getMessage());
-        }
-    }
 
 
 
@@ -497,6 +446,21 @@ public class IssueController {
     public ResponseEntity<IssueCountDto> getIssueCountByStatus(@PathVariable("status") IssueStatus issueStatus) {
         return ResponseEntity.ok(issueService.getIssueCountByStatus(issueStatus));
     }
+
+    @Operation(
+            summary = "Create Issue with Files",
+            description = "Create a new issue with attached files.",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    description = "Issue details with files",
+                    content = @Content(schema = @Schema(implementation = IssuePayload.class))
+            ),
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Issue created successfully with files"),
+                    @ApiResponse(responseCode = "500", description = "Error saving issue")
+            }
+    )
+
 
 
     //new controller for file:
