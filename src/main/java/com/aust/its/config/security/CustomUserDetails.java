@@ -16,9 +16,23 @@ public class CustomUserDetails implements UserDetails {
     private final HelpDeskUser user;
     private final HelpDeskRole role;
 
+//    @Override
+//    public Collection<? extends GrantedAuthority> getAuthorities() {
+//        return List.of(new SimpleGrantedAuthority(role.getRoleLabel()));
+//    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority(role.getRoleLabel()));
+        String roleLabel;
+
+        // Map roleId to Help Desk roles
+        long roleId = user.getRoleId();
+        if (roleId == 1) roleLabel = "ROLE_ADMIN";
+        else if (roleId == 2) roleLabel = "ROLE_DEVELOPER";
+        else if (roleId == 3) roleLabel = "ROLE_USER";
+        else roleLabel = "ROLE_USER"; // fallback for unknown role
+
+        return List.of(new SimpleGrantedAuthority(roleLabel));
     }
 
     @Override

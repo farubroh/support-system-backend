@@ -8,7 +8,8 @@ public enum Role {
     ADMIN("Admin"),
     DEVELOPER("Developer"),
     TEACHER("Teacher"),
-    STUDENT("Student");
+    STUDENT("Student"),
+    USER("User");    // added User role
 
     private final String name;
 

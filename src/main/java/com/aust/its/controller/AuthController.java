@@ -23,6 +23,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
 @CrossOrigin(origins = "http://localhost:3000")
@@ -41,14 +42,21 @@ public class AuthController {
     @LoginApiDoc
     @PostMapping("/login")
     public ResponseEntity<AuthenticationResponse> authenticate(@RequestBody LoginPayload loginPayload) {
-        logger.info("login payload is : {}", loginPayload);
-
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginPayload.userId(), loginPayload.password())
-        );
-
-        return authenticationResponse(loginPayload.userId());
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(loginPayload.userId(), loginPayload.password())
+            );
+            return authenticationResponse(loginPayload.userId());
+        } catch (BadCredentialsException e) {
+            return ResponseEntity.status(401).body(null); // return 401 instead of 500
+        } catch (UsernameNotFoundException e) {
+            return ResponseEntity.status(404).body(null);
+        } catch (Exception e) {
+            logger.error("Login failed", e);
+            return ResponseEntity.status(500).body(null);
+        }
     }
+
 
 
     @RegisterApiDoc
